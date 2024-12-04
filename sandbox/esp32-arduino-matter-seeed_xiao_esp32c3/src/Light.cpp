@@ -50,7 +50,7 @@ static void on_device_event(const ChipDeviceEvent *event, intptr_t arg) {}
   */
 static esp_err_t on_identification(identification::callback_type_t type, uint16_t endpoint_id,
                    uint8_t effect_id, uint8_t effect_variant, void *priv_data) {
-  return ESP_OK;
+    return ESP_OK;
 }
 
 /**
@@ -70,13 +70,13 @@ static esp_err_t on_identification(identification::callback_type_t type, uint16_
   */
 static esp_err_t on_attribute_update(attribute::callback_type_t type, uint16_t endpoint_id, uint32_t cluster_id,
                    uint32_t attribute_id, esp_matter_attr_val_t *val, void *priv_data) {
-  if (type == attribute::PRE_UPDATE && endpoint_id == light_endpoint_id &&
-    cluster_id == CLUSTER_ID && attribute_id == ATTRIBUTE_ID) {
-  // ライトのオン/オフ属性の更新を受け取りました！
-  bool new_state = val->val.b;
-  digitalWrite(LED_PIN, new_state);
-  }
-  return ESP_OK;
+    if (type == attribute::PRE_UPDATE && endpoint_id == light_endpoint_id &&
+        cluster_id == CLUSTER_ID && attribute_id == ATTRIBUTE_ID) {
+        // ライトのオン/オフ属性の更新を受け取りました！
+        bool new_state = val->val.b;
+        digitalWrite(LED_PIN, new_state);
+    }
+    return ESP_OK;
 }
 
 /**
@@ -94,37 +94,37 @@ static esp_err_t on_attribute_update(attribute::callback_type_t type, uint16_t e
  * - Matterデバイスを起動し、コミッショニングのためのオンボーディングコードを印刷します。
  */
 void setup() {
-  Serial.begin(115200);
-  pinMode(LED_PIN, OUTPUT);
-  pinMode(TOGGLE_BUTTON_PIN, INPUT);
+    Serial.begin(115200);
+    pinMode(LED_PIN, OUTPUT);
+    pinMode(TOGGLE_BUTTON_PIN, INPUT);
 
-  // デバッグログを有効にする
-  esp_log_level_set("*", ESP_LOG_DEBUG);
+    // デバッグログを有効にする
+    esp_log_level_set("*", ESP_LOG_DEBUG);
 
-  // Matterノードをセットアップする
-  node::config_t node_config;
-  node_t *node = node::create(&node_config, on_attribute_update, on_identification);
+    // Matterノードをセットアップする
+    node::config_t node_config;
+    node_t *node = node::create(&node_config, on_attribute_update, on_identification);
 
-  // デフォルト値でライトエンドポイント/クラスター/属性をセットアップする
-  on_off_light::config_t light_config;
-  light_config.on_off.on_off = false;
-  light_config.on_off.lighting.start_up_on_off = false;
-  endpoint_t *endpoint = on_off_light::create(node, &light_config, ENDPOINT_FLAG_NONE, NULL);
+    // デフォルト値でライトエンドポイント/クラスター/属性をセットアップする
+    on_off_light::config_t light_config;
+    light_config.on_off.on_off = false;
+    light_config.on_off.lighting.start_up_on_off = false;
+    endpoint_t *endpoint = on_off_light::create(node, &light_config, ENDPOINT_FLAG_NONE, NULL);
 
-  // オン/オフ属性の参照を保存します。後で属性値を読み取るために使用されます。
-  attribute_ref = attribute::get(cluster::get(endpoint, CLUSTER_ID), ATTRIBUTE_ID);
+    // オン/オフ属性の参照を保存します。後で属性値を読み取るために使用されます。
+    attribute_ref = attribute::get(cluster::get(endpoint, CLUSTER_ID), ATTRIBUTE_ID);
 
-  // 生成されたエンドポイントIDを保存する
-  light_endpoint_id = endpoint::get_id(endpoint);
-  
-  // DACをセットアップする（ここはカスタムのコミッションデータ、パスコードなどを設定するのに適しています）
-  esp_matter::set_custom_dac_provider(chip::Credentials::Examples::GetExampleDACProvider());
+    // 生成されたエンドポイントIDを保存する
+    light_endpoint_id = endpoint::get_id(endpoint);
+    
+    // DACをセットアップする（ここはカスタムのコミッションデータ、パスコードなどを設定するのに適しています）
+    esp_matter::set_custom_dac_provider(chip::Credentials::Examples::GetExampleDACProvider());
 
-  // Matterデバイスを起動する
-  esp_matter::start(on_device_event);
+    // Matterデバイスを起動する
+    esp_matter::start(on_device_event);
 
-  // Matterデバイスをセットアップするために必要なコードを印刷する
-  PrintOnboardingCodes(chip::RendezvousInformationFlags(chip::RendezvousInformationFlag::kBLE));
+    // Matterデバイスをセットアップするために必要なコードを印刷する
+    PrintOnboardingCodes(chip::RendezvousInformationFlags(chip::RendezvousInformationFlag::kBLE));
 }
 
 /**
@@ -133,9 +133,9 @@ void setup() {
   * @return esp_matter_attr_val_t ライトのオン/オフ属性値
   */
 esp_matter_attr_val_t get_onoff_attribute_value() {
-  esp_matter_attr_val_t onoff_value = esp_matter_invalid(NULL);
-  attribute::get_val(attribute_ref, &onoff_value);
-  return onoff_value;
+    esp_matter_attr_val_t onoff_value = esp_matter_invalid(NULL);
+    attribute::get_val(attribute_ref, &onoff_value);
+    return onoff_value;
 }
 
 /**
@@ -144,7 +144,7 @@ esp_matter_attr_val_t get_onoff_attribute_value() {
   * @param onoff_value ライトのオン/オフ属性値
   */
 void set_onoff_attribute_value(esp_matter_attr_val_t* onoff_value) {
-  attribute::update(light_endpoint_id, CLUSTER_ID, ATTRIBUTE_ID, onoff_value);
+    attribute::update(light_endpoint_id, CLUSTER_ID, ATTRIBUTE_ID, onoff_value);
 }
 
 /**
@@ -152,13 +152,13 @@ void set_onoff_attribute_value(esp_matter_attr_val_t* onoff_value) {
   * トグルライトボタンが押されたとき（デバウンス処理付き），ライトのオン/オフ属性値を変更します。
   */
 void loop() {
-  if ((millis() - last_toggle) > DEBOUNCE_DELAY) {
-  if (!digitalRead(TOGGLE_BUTTON_PIN)) {
-    last_toggle = millis();
-    // 実際のオン/オフ値を読み取り、反転して設定する
-    esp_matter_attr_val_t onoff_value = get_onoff_attribute_value();
-    onoff_value.val.b = !onoff_value.val.b;
-    set_onoff_attribute_value(&onoff_value);
-  }
-  }
+    if ((millis() - last_toggle) > DEBOUNCE_DELAY) {
+        if (!digitalRead(TOGGLE_BUTTON_PIN)) {
+            last_toggle = millis();
+            // 実際のオン/オフ値を読み取り、反転して設定する
+            esp_matter_attr_val_t onoff_value = get_onoff_attribute_value();
+            onoff_value.val.b = !onoff_value.val.b;
+            set_onoff_attribute_value(&onoff_value);
+        }
+    }
 }
