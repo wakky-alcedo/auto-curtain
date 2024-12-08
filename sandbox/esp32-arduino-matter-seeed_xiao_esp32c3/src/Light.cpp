@@ -10,6 +10,14 @@
  *   - Matter（CHIPToolや他のMatterコントローラーを介して）
  *   - トグルボタン（デフォルトではGPIO0 - リセットボタンに接
  */
+#include <Arduino.h>
+#include "Matter.h"
+#include <app/server/OnboardingCodesUtil.h>
+#include <credentials/examples/DeviceAttestationCredsExample.h>
+using namespace chip;
+using namespace chip::app::Clusters;
+using namespace esp_matter;
+using namespace esp_matter::endpoint;
 
 // PINを設定してください
 const int LED_PIN = D0;
