@@ -21,19 +21,23 @@ namespace em = esp_matter;
 const int LED_PIN = D0;
 const int TOGGLE_BUTTON_PIN = D9;
 
-// トグルボタンのデバウンス
+// トグルボタンのチャッタリング防止時間と状態を覚えておくための変数
 const int DEBOUNCE_DELAY = 500;
 int last_toggle;
 
 // Matterライトデバイスで使用されるクラスターと属性ID
-const uint32_t CLUSTER_ID = clusters::OnOff::Id;
-const uint32_t ATTRIBUTE_ID = clusters::OnOff::Attributes::OnOff::Id;
+// const uint32_t CLUSTER_ID = clusters::OnOff::Id;
+// const uint32_t ATTRIBUTE_ID = clusters::OnOff::Attributes::OnOff::Id;
+const uint32_t CLUSTER_ID = clusters::WindowCovering::Id;
+const uint32_t ATTRIBUTE_ID = clusters::WindowCovering::Attributes::OperationalStatus::Id;
 
 // Matterデバイスに割り当てられるエンドポイントと属性参照
 uint16_t light_endpoint_id = 0;
+uint16_t curtain_endpoint_id = 0;
 em::attribute_t *attribute_ref;
 
 
+// いろいろなデバイスのイベントを聴取する可能性があるけど、ここでは使わないので空欄にしておく
 // セットアッププロセスに関連するさまざまなデバイスイベントをリッスンする可能性があります
 // 簡潔にするために空のままにしています
 /**
@@ -59,11 +63,12 @@ static esp_err_t on_identification(em::identification::callback_type_t type, uin
     return ESP_OK;
 }
 
+
 /**
-  * @brief 属性更新リクエストのリスナー。
+  * @brief 属性(attribute)が更新される時に呼び出されるリスナー関数
   * この例では、
-  * ライトのオン/オフ属性の更新がリクエストされたとき
-  * パス（エンドポイント、クラスター、属性）がライト属性と一致するかどうかを確認
+  * ライトのon/off attributeの更新がリクエストされたとき
+  * パス（エンドポイント、クラスター、属性）をチェックして，ライト属性と一致するかどうかを確認
   * 一致する場合、LEDは新しい状態に変更
 
   * @param type 属性更新のタイプ
@@ -78,7 +83,7 @@ static esp_err_t on_attribute_update(em::attribute::callback_type_t type, uint16
                    uint32_t attribute_id, esp_matter_attr_val_t *val, void *priv_data) {
     if (type == em::attribute::PRE_UPDATE && endpoint_id == light_endpoint_id &&
         cluster_id == CLUSTER_ID && attribute_id == ATTRIBUTE_ID) {
-        // ライトのオン/オフ属性の更新を受け取りました！
+        // ライトのon/off attributeの更新を受け取りました！
         bool new_state = val->val.b;
         digitalWrite(LED_PIN, new_state);
     }
@@ -94,7 +99,7 @@ static esp_err_t on_attribute_update(em::attribute::callback_type_t type, uint16
  * - すべてのコンポーネントのデバッグログを有効にします。
  * - 指定された設定とコールバック関数を使用してMatterノードをセットアップします。
  * - オン/オフクラスターと属性のデフォルト値でライトエンドポイントを設定します。
- * - 後で使用するためにオン/オフ属性の参照を保存します。
+ * - 後で使用するためにon/off attributeの参照を保存します。
  * - ライトエンドポイントの生成されたエンドポイントIDを保存します。
  * - カスタムコミッショニングデータを使用してDAC（デバイス認証証明書）を設定します。
  * - Matterデバイスを起動し、コミッショニングのためのオンボーディングコードを印刷します。
@@ -105,23 +110,38 @@ void setup() {
     pinMode(TOGGLE_BUTTON_PIN, INPUT);
 
     // デバッグログを有効にする
+    // ESP_LOG_ERRORなどに変更するとメッセージが減る
+    // ESP_LOG_INFOもある
     esp_log_level_set("*", ESP_LOG_DEBUG);
 
     // Matterノードをセットアップする
     em::node::config_t node_config;
+    snprintf(node_config.root_node.basic_information.node_label, sizeof(node_config.root_node.basic_information.node_label), "DIY Smart Light");
     em::node_t *node = em::node::create(&node_config, on_attribute_update, on_identification);
 
     // デフォルト値でライトエンドポイント/クラスター/属性をセットアップする
-    em::endpoint::on_off_light::config_t light_config;
-    light_config.on_off.on_off = false;
-    light_config.on_off.lighting.start_up_on_off = false;
-    em::endpoint_t *endpoint = em::endpoint::on_off_light::create(node, &light_config, em::ENDPOINT_FLAG_NONE, NULL);
+    // コンストラクタで初期化されているはずだけどね
+    em::endpoint::window_covering_device::config_t curtain_config;
+    curtain_config.window_covering.type = 0x00;
+    curtain_config.window_covering.config_status = 0b000000;
+    curtain_config.window_covering.operational_status = 0b000000;
+    curtain_config.window_covering.mode = 0x00;
+    curtain_config.window_covering.lift.number_of_actuations_lift = 0;
+    // em::endpoint::on_off_light::config_t light_config;
+    // light_config.on_off.on_off = false;
+    // light_config.on_off.lighting.start_up_on_off = false;
 
-    // オン/オフ属性の参照を保存します。後で属性値を読み取るために使用されます。
+    // endpointを作成
+    em::endpoint_t *endpoint = em::endpoint::window_covering_device::create(node, &curtain_config, em::ENDPOINT_FLAG_NONE, NULL);
+    // em::endpoint_t *endpoint = em::endpoint::on_off_light::create(node, &light_config, em::ENDPOINT_FLAG_NONE, NULL);
+
+    // on/off attribute の参照を保存
+    // 後で属性値を読み取るために使用
     attribute_ref = em::attribute::get(em::cluster::get(endpoint, CLUSTER_ID), ATTRIBUTE_ID);
 
     // 生成されたエンドポイントIDを保存する
     light_endpoint_id = em::endpoint::get_id(endpoint);
+    curtain_endpoint_id = em::endpoint::get_id(endpoint);
     
     // DACをセットアップする（ここはカスタムのコミッションデータ、パスコードなどを設定するのに適しています）
     em::set_custom_dac_provider(chip::Credentials::Examples::GetExampleDACProvider());
@@ -129,14 +149,14 @@ void setup() {
     // Matterデバイスを起動する
     em::start(on_device_event);
 
-    // Matterデバイスをセットアップするために必要なコードを印刷する
+    // Matterデバイスをセットアップするために必要なコードを表示（ペアリングコードなど）
     PrintOnboardingCodes(chip::RendezvousInformationFlags(chip::RendezvousInformationFlag::kBLE));
 }
 
 /**
-  * @brief ライトのオン/オフ属性値を取得する。
+  * @brief 現在のMatterデバイスの light on/off attribute 値を読み取る
   * 
-  * @return esp_matter_attr_val_t ライトのオン/オフ属性値
+  * @return esp_matter_attr_val_t ライトのon/off attribute 値
   */
 esp_matter_attr_val_t get_onoff_attribute_value() {
     esp_matter_attr_val_t onoff_value = esp_matter_invalid(NULL);
@@ -145,9 +165,9 @@ esp_matter_attr_val_t get_onoff_attribute_value() {
 }
 
 /**
-  * @brief ライトのオン/オフ属性値を設定する。
+  * @brief light on/off attribute 値を設定する
   * 
-  * @param onoff_value ライトのオン/オフ属性値
+  * @param onoff_value light on/off attribute 値
   */
 void set_onoff_attribute_value(esp_matter_attr_val_t* onoff_value) {
     em::attribute::update(light_endpoint_id, CLUSTER_ID, ATTRIBUTE_ID, onoff_value);
@@ -155,9 +175,10 @@ void set_onoff_attribute_value(esp_matter_attr_val_t* onoff_value) {
 
 /**
   * @brief メインループ。
-  * トグルライトボタンが押されたとき（デバウンス処理付き），ライトのオン/オフ属性値を変更します。
+  * トグルライトボタンが押されたとき（デバウンス処理付き），light on/off attribute 値を変更します。
   */
 void loop() {
+    // チャッタリング防止のために500ms毎に押しボタンスイッチ状態を調べて押されていたらLEDを反転
     if ((millis() - last_toggle) > DEBOUNCE_DELAY) {
         if (!digitalRead(TOGGLE_BUTTON_PIN)) {
             last_toggle = millis();
