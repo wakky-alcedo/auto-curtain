@@ -28,11 +28,11 @@ int last_toggle;
 // Matterライトデバイスで使用されるクラスターと属性ID
 // const uint32_t CLUSTER_ID = clusters::OnOff::Id;
 // const uint32_t ATTRIBUTE_ID = clusters::OnOff::Attributes::OnOff::Id;
-const uint32_t CLUSTER_ID = clusters::WindowCovering::Id;
-const uint32_t ATTRIBUTE_ID = clusters::WindowCovering::Attributes::OperationalStatus::Id;
+const uint32_t CURTAIN_CLUSTER_ID = clusters::WindowCovering::Id;
+const uint32_t CURTAIN_ATTRIBUTE_ID = clusters::WindowCovering::Attributes::OperationalStatus::Id;
 
 // Matterデバイスに割り当てられるエンドポイントと属性参照
-uint16_t light_endpoint_id = 0;
+// uint16_t light_endpoint_id = 0;
 uint16_t curtain_endpoint_id = 0;
 em::attribute_t *attribute_ref;
 
@@ -47,17 +47,6 @@ em::attribute_t *attribute_ref;
   * @param arg ユーザー定義の引数
   */
 static void on_device_event(const ChipDeviceEvent *event, intptr_t arg) {}
-
-/**
-  * @brief Identificationコールバック関数。
-  * この例では、Identificationコールバックをリッスンしていません。
-  * @param type Identificationコールバックのタイプ
-  * @param endpoint_id エンドポイントID
-  * @param effect_id エフェクトID
-  * @param effect_variant エフェクトバリアント
-  * @param priv_data プライベートデータ
-  * @return esp_err_t 処理結果
-  */
 static esp_err_t on_identification(em::identification::callback_type_t type, uint16_t endpoint_id,
                    uint8_t effect_id, uint8_t effect_variant, void *priv_data) {
     return ESP_OK;
@@ -79,16 +68,39 @@ static esp_err_t on_identification(em::identification::callback_type_t type, uin
   * @param priv_data プライベートデータ
   * @return esp_err_t 処理結果
   */
+// static esp_err_t on_attribute_update(em::attribute::callback_type_t type, uint16_t endpoint_id, uint32_t cluster_id,
+//                    uint32_t attribute_id, esp_matter_attr_val_t *val, void *priv_data) {
+//     if (type == em::attribute::PRE_UPDATE && endpoint_id == light_endpoint_id &&
+//         cluster_id == CLUSTER_ID && attribute_id == ATTRIBUTE_ID) {
+//         // ライトのon/off attributeの更新を受け取りました！
+//         bool new_state = val->val.b;
+//         digitalWrite(LED_PIN, new_state);
+//     }
+//     return ESP_OK;
+// }
+
 static esp_err_t on_attribute_update(em::attribute::callback_type_t type, uint16_t endpoint_id, uint32_t cluster_id,
                    uint32_t attribute_id, esp_matter_attr_val_t *val, void *priv_data) {
-    if (type == em::attribute::PRE_UPDATE && endpoint_id == light_endpoint_id &&
-        cluster_id == CLUSTER_ID && attribute_id == ATTRIBUTE_ID) {
-        // ライトのon/off attributeの更新を受け取りました！
-        bool new_state = val->val.b;
-        digitalWrite(LED_PIN, new_state);
+    if (type == em::attribute::PRE_UPDATE) {
+        Serial.print("Update on endpoint: ");
+        Serial.print(endpoint_id);
+        Serial.print(" cluster: ");
+        Serial.print(cluster_id);
+        Serial.print(" attribute: ");
+        Serial.println(attribute_id);
+
+        if(endpoint_id == curtain_endpoint_id &&
+        cluster_id == CURTAIN_CLUSTER_ID && attribute_id == CURTAIN_ATTRIBUTE_ID) {
+            // カーテンのattributeの更新を受け取りました！
+            bool new_state = val->val.b;
+            Serial.print("New state: ");
+            Serial.println(new_state);
+            // digitalWrite(LED_PIN, new_state);
+        }
     }
     return ESP_OK;
 }
+
 
 /**
  * @brief Matterノードを初期化し、ライトエンドポイントを設定するためのセットアップ関数。
@@ -140,7 +152,7 @@ void setup() {
     attribute_ref = em::attribute::get(em::cluster::get(endpoint, CLUSTER_ID), ATTRIBUTE_ID);
 
     // 生成されたエンドポイントIDを保存する
-    light_endpoint_id = em::endpoint::get_id(endpoint);
+    // light_endpoint_id = em::endpoint::get_id(endpoint);
     curtain_endpoint_id = em::endpoint::get_id(endpoint);
     
     // DACをセットアップする（ここはカスタムのコミッションデータ、パスコードなどを設定するのに適しています）
@@ -158,19 +170,28 @@ void setup() {
   * 
   * @return esp_matter_attr_val_t ライトのon/off attribute 値
   */
-esp_matter_attr_val_t get_onoff_attribute_value() {
-    esp_matter_attr_val_t onoff_value = esp_matter_invalid(NULL);
-    em::attribute::get_val(attribute_ref, &onoff_value);
-    return onoff_value;
+// esp_matter_attr_val_t get_onoff_attribute_value() {
+//     esp_matter_attr_val_t onoff_value = esp_matter_invalid(NULL);
+//     em::attribute::get_val(attribute_ref, &onoff_value);
+//     return onoff_value;
+// }
+
+esp_matter_attr_val_t get_curtain_attribute_value() {
+    esp_matter_attr_val_t curtain_value = esp_matter_invalid(NULL);
+    em::attribute::get_val(attribute_ref, &curtain_value);
+    return curtain_value;
 }
 
 /**
   * @brief light on/off attribute 値を設定する
-  * 
   * @param onoff_value light on/off attribute 値
   */
-void set_onoff_attribute_value(esp_matter_attr_val_t* onoff_value) {
-    em::attribute::update(light_endpoint_id, CLUSTER_ID, ATTRIBUTE_ID, onoff_value);
+// void set_onoff_attribute_value(esp_matter_attr_val_t* onoff_value) {
+//     em::attribute::update(light_endpoint_id, CLUSTER_ID, ATTRIBUTE_ID, onoff_value);
+// }
+
+void set_curtain_attribute_value(esp_matter_attr_val_t* curtain_value) {
+    em::attribute::update(curtain_endpoint_id, CLUSTER_ID, ATTRIBUTE_ID, curtain_value);
 }
 
 /**
@@ -183,9 +204,12 @@ void loop() {
         if (!digitalRead(TOGGLE_BUTTON_PIN)) {
             last_toggle = millis();
             // 実際のオン/オフ値を読み取り、反転して設定する
-            esp_matter_attr_val_t onoff_value = get_onoff_attribute_value();
-            onoff_value.val.b = !onoff_value.val.b;
-            set_onoff_attribute_value(&onoff_value);
+            // esp_matter_attr_val_t onoff_value = get_onoff_attribute_value();
+            // onoff_value.val.b = !onoff_value.val.b;
+            // set_onoff_attribute_value(&onoff_value);
+            esp_matter_attr_val_t curtain_value = get_curtain_attribute_value();
+            curtain_value.val.u8 = !curtain_value.val.u8;
+            set_curtain_attribute_value(&curtain_value);
         }
     }
 }
