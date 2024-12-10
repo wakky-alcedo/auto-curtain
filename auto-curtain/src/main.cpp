@@ -28,8 +28,8 @@ int last_toggle;
 // Matterライトデバイスで使用されるクラスターと属性ID
 // const uint32_t CLUSTER_ID = clusters::OnOff::Id;
 // const uint32_t ATTRIBUTE_ID = clusters::OnOff::Attributes::OnOff::Id;
-const uint32_t CURTAIN_CLUSTER_ID = clusters::WindowCovering::Id;
-const uint32_t CURTAIN_ATTRIBUTE_ID = clusters::WindowCovering::Attributes::OperationalStatus::Id;
+const uint32_t CLUSTER_ID_CURTAIN = clusters::WindowCovering::Id;
+const uint32_t ATTRIBUTE_ID_CURTAIN = clusters::WindowCovering::Attributes::OperationalStatus::Id;
 
 // Matterデバイスに割り当てられるエンドポイントと属性参照
 // uint16_t light_endpoint_id = 0;
@@ -90,8 +90,8 @@ static esp_err_t on_attribute_update(em::attribute::callback_type_t type, uint16
         Serial.println(attribute_id);
 
         if(endpoint_id == curtain_endpoint_id &&
-        cluster_id == CURTAIN_CLUSTER_ID && attribute_id == CURTAIN_ATTRIBUTE_ID) {
-            // カーテンのattributeの更新を受け取りました！
+        cluster_id == CLUSTER_ID_CURTAIN && attribute_id == ATTRIBUTE_ID_CURTAIN) {
+            // カーテンのattributeの更新を受け取りました
             bool new_state = val->val.b;
             Serial.print("New state: ");
             Serial.println(new_state);
@@ -149,7 +149,7 @@ void setup() {
 
     // on/off attribute の参照を保存
     // 後で属性値を読み取るために使用
-    attribute_ref = em::attribute::get(em::cluster::get(endpoint, CLUSTER_ID), ATTRIBUTE_ID);
+    attribute_ref = em::attribute::get(em::cluster::get(endpoint, CLUSTER_ID_CURTAIN), ATTRIBUTE_ID_CURTAIN);
 
     // 生成されたエンドポイントIDを保存する
     // light_endpoint_id = em::endpoint::get_id(endpoint);
@@ -191,7 +191,7 @@ esp_matter_attr_val_t get_curtain_attribute_value() {
 // }
 
 void set_curtain_attribute_value(esp_matter_attr_val_t* curtain_value) {
-    em::attribute::update(curtain_endpoint_id, CLUSTER_ID, ATTRIBUTE_ID, curtain_value);
+    em::attribute::update(curtain_endpoint_id, CLUSTER_ID_CURTAIN, ATTRIBUTE_ID_CURTAIN, curtain_value);
 }
 
 /**
