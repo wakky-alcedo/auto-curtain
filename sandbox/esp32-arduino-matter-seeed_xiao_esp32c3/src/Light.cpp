@@ -10,6 +10,24 @@
  *   - Matter（CHIPToolや他のMatterコントローラーを介して）
  *   - トグルボタン（デフォルトではGPIO0 - リセットボタンに接
  */
+
+// 作ったやつ
+#define CHIP_DEVICE_CONFIG_USE_TEST_SETUP_PIN_CODE 20241214
+#define CHIP_DEVICE_CONFIG_USE_TEST_SPAKE2P_ITERATION_COUNT 1000
+#define CHIP_DEVICE_CONFIG_USE_TEST_SPAKE2P_SALT "U1BBS0UyUCBLZXkgU2FsdA==" 
+#define CHIP_DEVICE_CONFIG_USE_TEST_SPAKE2P_VERIFIER \
+  "vX+/5yAFHWg2KCbFIp+If91O/rTn43pQeaPcLiByviwEEbs0ZPsKtHn5ebBl/ifC+ixMOmVXcOMH8HaJgLPGRUqNbdvdZHWSEcfNBzkXzSx0fGK/uyd8IO6HxTAZSNiuTQ=="
+#define CHIP_DEVICE_CONFIG_USE_TEST_SETUP_DISCRIMINATOR 0xF01
+
+
+// Default
+// #define CHIP_DEVICE_CONFIG_USE_TEST_SETUP_PIN_CODE 20202021
+// #define CHIP_DEVICE_CONFIG_USE_TEST_SPAKE2P_ITERATION_COUNT 1000
+// #define CHIP_DEVICE_CONFIG_USE_TEST_SPAKE2P_SALT "U1BBS0UyUCBLZXkgU2FsdA==" 
+// #define CHIP_DEVICE_CONFIG_USE_TEST_SPAKE2P_VERIFIER \
+//   "uWFwqugDNGiEck/po7KHwwMwwqZgN10XuyBajPGuyzUEV/iree4lOrao5GuwnlQ65CJzbeUB49s31EH+NEkg0JVI5MGCQGMMT/SRPFNRODm3wH/MBiehuFc6FJ/NH6Rmzw=="
+// #define CHIP_DEVICE_CONFIG_USE_TEST_SETUP_DISCRIMINATOR 0xF00
+
 #include <Arduino.h>
 #include "Matter.h"
 #include <app/server/OnboardingCodesUtil.h>
@@ -87,6 +105,74 @@ static esp_err_t on_attribute_update(attribute::callback_type_t type, uint16_t e
     return ESP_OK;
 }
 
+#include <setup_payload/SetupPayload.h>
+#include <setup_payload/QRCodeSetupPayloadGenerator.h>
+// using namespace chip;
+// using namespace chip::setuppSetupPayload;
+
+void GenerateCustomQRCode() {
+    // chip::SetupPayload payload;
+    chip::PayloadContents payload;
+
+    // ベンダーIDと製品IDを設定
+    payload.vendorID = 1217;  // あなたのベンダーID default: 1217
+    payload.productID = 5678; // あなたの製品ID
+    payload.setUpPINCode = CHIP_DEVICE_CONFIG_USE_TEST_SETUP_PIN_CODE;
+    payload.discriminator.SetLongValue(CHIP_DEVICE_CONFIG_USE_TEST_SETUP_DISCRIMINATOR);
+    payload.rendezvousInformation.SetValue(chip::RendezvousInformationFlags(chip::RendezvousInformationFlag::kBLE));
+
+    Serial.print("isValidManualCode: ");
+    Serial.println(payload.isValidManualCode());
+    Serial.print("isValidQRCodePayload: ");
+    Serial.println(payload.isValidQRCodePayload());
+    Serial.print("IsValidSetupPIN: ");
+    Serial.println(SetupPayload::IsValidSetupPIN(payload.setUpPINCode));
+    Serial.println(payload.IsValidSetupPIN(CHIP_DEVICE_CONFIG_USE_TEST_SETUP_PIN_CODE));
+
+    // chip::Ble::ChipBLEDeviceIdentificationInfo aaaaabb;
+    // info.SetVendorId(1234);
+
+    // QRコード文字列を生成
+    // std::string qrCode;
+    // chip::QRCodeSetupPayloadGenerator generator(payload);
+    // if (generator.payloadBase38Representation(qrCode) == CHIP_NO_ERROR) {
+    //     ChipLogProgress(DeviceLayer, "Generated QR Code: %s", qrCode.c_str());
+    // } else {
+    //     ChipLogError(DeviceLayer, "Failed to generate QR Code.");
+    // }
+
+    // CHIP_ERROR err = generator.payloadBase38Representation(qrCode);
+    // if (err == CHIP_NO_ERROR)
+    // {
+    //     Serial.println("QR Code:");
+    //     Serial.println(qrCode.c_str());
+    // }
+    // else
+    // {
+    //     Serial.print("Failed to generate QR Code. Error: ");
+    //     Serial.println(ErrorStr(err));
+    // }
+
+    PrintOnboardingCodes(payload);
+}
+
+#include <app/server/Server.h>
+void ResetProvisioning() {
+    chip::Server::GetInstance().ScheduleFactoryReset();
+      // esp_matter::factory_reset();
+  // esp_matter::setup_providers();
+  // chip::DeviceLayer::ConnectivityMgr().ClearBLE();
+    // chip::DeviceLayer::ChipDeviceEvent::ServiceProvisioningChange provisioningChange;
+  // chip::DeviceLayer::DeviceEventType::kServiceProvisioningChange;
+}
+
+#include <app/server/Server.h>
+void ResetNodeId() {
+    auto & server = chip::Server::GetInstance();
+    server.GetFabricTable().DeleteAllFabrics();
+    ChipLogProgress(DeviceLayer, "Node ID reset successfully.");
+}
+
 /**
  * @brief Matterノードを初期化し、ライトエンドポイントを設定するためのセットアップ関数。
  * 
@@ -103,17 +189,35 @@ static esp_err_t on_attribute_update(attribute::callback_type_t type, uint16_t e
  */
 void setup() {
     Serial.begin(115200);
+
+    Serial.println("--- Start Settings ---");
+
     pinMode(LED_PIN, OUTPUT);
     pinMode(TOGGLE_BUTTON_PIN, INPUT);
+
+    Serial.println("Start Matter Settings"); 
 
     // デバッグログを有効にする
     esp_log_level_set("*", ESP_LOG_DEBUG);
 
+    // ResetProvisioning();
+    // ResetNodeId();
+
+    // ファブリックインデックスのすべてのエントリを削除
+    // 危険なので，ちゃんとindexはesp_matter::start()のログから確認すること
+    // Serial.println("Delete Access Control Settings");
+    // chip::Access::AccessControl accessControl;
+    // accessControl.DeleteAllEntriesForFabric(0x1);
+    // accessControl.DeleteAllEntriesForFabric(0x2);
+    // accessControl.DeleteAllEntriesForFabric(0x3);
+
     // Matterノードをセットアップする
+    Serial.println("Setup Node");
     node::config_t node_config;
     node_t *node = node::create(&node_config, on_attribute_update, on_identification);
 
     // デフォルト値でライトエンドポイント/クラスター/属性をセットアップする
+    Serial.println("Setup Light Endpoint");
     on_off_light::config_t light_config;
     light_config.on_off.on_off = false;
     light_config.on_off.lighting.start_up_on_off = false;
@@ -126,13 +230,19 @@ void setup() {
     light_endpoint_id = endpoint::get_id(endpoint);
     
     // DACをセットアップする（ここはカスタムのコミッションデータ、パスコードなどを設定するのに適しています）
+    Serial.println("Setup DAC");
     esp_matter::set_custom_dac_provider(chip::Credentials::Examples::GetExampleDACProvider());
 
     // Matterデバイスを起動する
+    Serial.println("Start Matter Device");
     esp_matter::start(on_device_event);
 
     // Matterデバイスをセットアップするために必要なコードを印刷する
-    PrintOnboardingCodes(chip::RendezvousInformationFlags(chip::RendezvousInformationFlag::kBLE));
+    Serial.println("Print Onboarding Codes");
+    // PrintOnboardingCodes(chip::RendezvousInformationFlags(chip::RendezvousInformationFlag::kBLE));
+    GenerateCustomQRCode();
+
+    Serial.println("--- Settings Complete ---");
 }
 
 /**
