@@ -90,10 +90,11 @@ static esp_err_t on_attribute_update(em::attribute::callback_type_t type, uint16
         Serial.println(attribute_id);
 
         if(endpoint_id == curtain_endpoint_id &&
-        cluster_id == CLUSTER_ID_CURTAIN && attribute_id == ATTRIBUTE_ID_CURTAIN) {
+        cluster_id == CLUSTER_ID_CURTAIN && attribute_id == ATTRIBUTE_ID_CURTAIN) { // OperationalStatus Attribute
             // カーテンのattributeの更新を受け取りました
-            bool new_state = val->val.b;
-            Serial.print("New state: ");
+            // bool new_state = val->val.b;
+            uint8_t new_state = val->val.u8;
+            Serial.print("OperationalStatus: ");
             Serial.println(new_state);
             // digitalWrite(LED_PIN, new_state);
         }
@@ -126,7 +127,11 @@ void setup() {
     // ESP_LOG_INFOもある
     esp_log_level_set("*", ESP_LOG_DEBUG);
 
-    // Matterノードをセットアップする
+    // ファブリックインデックス0のすべてのエントリを削除（必要なときだけコメントアウトを解除する）
+    // chip::Access::AccessControl accessControl;
+    // accessControl.DeleteAllEntriesForFabric(0x2);
+
+    // Matterノード(このマイコンそのもの)，デバイス名の設定
     em::node::config_t node_config;
     snprintf(node_config.root_node.basic_information.node_label, sizeof(node_config.root_node.basic_information.node_label), "DIY Smart Light");
     em::node_t *node = em::node::create(&node_config, on_attribute_update, on_identification);
@@ -134,11 +139,12 @@ void setup() {
     // デフォルト値でライトエンドポイント/クラスター/属性をセットアップする
     // コンストラクタで初期化されているはずだけどね
     em::endpoint::window_covering_device::config_t curtain_config;
-    curtain_config.window_covering.type = 0x00;
+    curtain_config.window_covering.type = 0x04; // curtain // window_covering cluster の type attribute
     curtain_config.window_covering.config_status = 0b000000;
     curtain_config.window_covering.operational_status = 0b000000;
     curtain_config.window_covering.mode = 0x00;
-    curtain_config.window_covering.lift.number_of_actuations_lift = 0;
+    curtain_config.window_covering.lift.number_of_actuations_lift = 0; // 
+
     // em::endpoint::on_off_light::config_t light_config;
     // light_config.on_off.on_off = false;
     // light_config.on_off.lighting.start_up_on_off = false;
@@ -154,6 +160,8 @@ void setup() {
     // 生成されたエンドポイントIDを保存する
     // light_endpoint_id = em::endpoint::get_id(endpoint);
     curtain_endpoint_id = em::endpoint::get_id(endpoint);
+    Serial.print("Curtain endpoint ID: ");
+    Serial.println(curtain_endpoint_id);
     
     // DACをセットアップする（ここはカスタムのコミッションデータ、パスコードなどを設定するのに適しています）
     em::set_custom_dac_provider(chip::Credentials::Examples::GetExampleDACProvider());
@@ -208,8 +216,10 @@ void loop() {
             // onoff_value.val.b = !onoff_value.val.b;
             // set_onoff_attribute_value(&onoff_value);
             esp_matter_attr_val_t curtain_value = get_curtain_attribute_value();
-            curtain_value.val.u8 = !curtain_value.val.u8;
-            set_curtain_attribute_value(&curtain_value);
+            Serial.print("Current state: ");
+            Serial.println(curtain_value.val.u8);
+            // curtain_value.val.u8 = curtain_value.val.u8;
+            // set_curtain_attribute_value(&curtain_value);
         }
     }
 }
